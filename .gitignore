@@ -19,7 +19,8 @@ publish/
 !app.ico
 
 ## Models & Weights (Downloaded at runtime)
-models/
+!/Models/
+!/Models/**
 aiModels/
 *.onnx
 *.int8.onnx
