@@ -78,6 +78,7 @@ internal class Program
 
         string chosenModelPath = localNemotron ?? Path.Combine(targetDir, "models", "nemotron-int8");
         string chosenModelName = "Nemotron-3.5-ASR 0.6B Streaming INT8";
+        string chosenModelId = "nemotron-int8";
 
         if (modelChoice == "1")
         {
@@ -101,6 +102,7 @@ internal class Program
         else if (modelChoice == "2")
         {
             var preset = SetupEngine.AvailableModels[1];
+            chosenModelId = preset.Id;
             chosenModelName = preset.Name;
             string downloadDir = Path.Combine(targetDir, "models", preset.Id);
             Console.WriteLine($"\nStarting download for {preset.Name}...");
@@ -114,6 +116,7 @@ internal class Program
         else if (modelChoice == "3")
         {
             var preset = SetupEngine.AvailableModels[2];
+            chosenModelId = preset.Id;
             chosenModelName = preset.Name;
             string downloadDir = Path.Combine(targetDir, "models", preset.Id);
             Console.WriteLine($"\nStarting download for {preset.Name}...");
@@ -131,6 +134,7 @@ internal class Program
             if (!string.IsNullOrEmpty(customPath) && Directory.Exists(customPath))
             {
                 chosenModelPath = customPath;
+                chosenModelId = ConfigService.DetectModelId(customPath);
                 chosenModelName = "Custom Local Transducer Model";
             }
         }
@@ -217,16 +221,18 @@ internal class Program
         }
 
         cfg.Version = SetupEngine.AppVersion;
+        cfg.ModelId = chosenModelId;
         cfg.ModelPath = chosenModelPath;
         cfg.ModelName = chosenModelName;
+        cfg.LanguageCode = SupportedLanguage.NormalizeLanguageForModel(chosenModelId, cfg.LanguageCode);
         cfg.AutoStartOnBoot = autoStart;
 
         var jsonOptions = new JsonSerializerOptions { WriteIndented = true };
         File.WriteAllText(configPath, JsonSerializer.Serialize(cfg, jsonOptions));
 
-        // 7. Register in Windows Programs & Configure AutoStart without registry
+        // 7. Register in Windows Programs & Configure AutoStart in HKCU Run
         Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine("[3/4] Registering Windows Add or Remove Programs entry & Startup shortcut...");
+        Console.WriteLine("[3/4] Registering Windows Add or Remove Programs entry & HKCU Run startup...");
         Console.ResetColor();
 
         SetupEngine.RegisterUninstall(targetDir, targetExe, targetIco);

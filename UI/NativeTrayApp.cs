@@ -203,14 +203,15 @@ public class NativeTrayApp : IDisposable
         // 1. Status Banner
         string statusText = _lifecycleManager.State switch
         {
-            EngineState.ActiveListening => "● Status: Listening (Typing Active)",
+            EngineState.ActiveListening => $"🟢 Status: Listening [{SupportedLanguage.FindByCode(_configService.Config.LanguageCode).DisplayName.Split('(')[0].Trim()}]",
             EngineState.ReadyCached => _lifecycleManager.RemainingStandbySeconds == -1
-                ? "⏱ Status: Ready in RAM (Infinite Cache)"
-                : $"⏱ Status: Ready in RAM ({_lifecycleManager.RemainingStandbySeconds}s left)",
+                ? "🟡 Status: Ready in RAM (Infinite Cache)"
+                : $"🟡 Status: Ready in RAM ({_lifecycleManager.RemainingStandbySeconds}s)",
             EngineState.Loading => "⏳ Status: Loading Model into RAM...",
             _ => "💤 Status: Idle (RAM Free)"
         };
         NativeWin32.AppendMenu(hMenu, NativeWin32.MF_STRING | NativeWin32.MF_DISABLED | NativeWin32.MF_GRAYED, UIntPtr.Zero, statusText);
+        NativeWin32.AppendMenu(hMenu, NativeWin32.MF_STRING | NativeWin32.MF_DISABLED | NativeWin32.MF_GRAYED, UIntPtr.Zero, $"🧠 Model: {_configService.Config.ModelName}");
         NativeWin32.AppendMenu(hMenu, NativeWin32.MF_SEPARATOR, UIntPtr.Zero, null);
 
         // 2. Toggle Start/Stop Dictation
@@ -222,33 +223,55 @@ public class NativeTrayApp : IDisposable
         NativeWin32.AppendMenu(hMenu, openMicFlags, (UIntPtr)CMD_OPEN_MIC, "🎤 Open Mic Mode (Continuous)");
         NativeWin32.AppendMenu(hMenu, NativeWin32.MF_SEPARATOR, UIntPtr.Zero, null);
 
-        // 4. Languages Submenu (Built lazily on demand)
-        IntPtr hLangMenu = NativeWin32.CreatePopupMenu();
+        // 4. Languages Submenu (Dynamically filtered by active model)
+        var supportedLangs = _configService.GetSupportedLanguagesForActiveModel();
         string activeLangCode = _configService.Config.LanguageCode;
 
-        NativeWin32.AppendMenu(hLangMenu, NativeWin32.MF_STRING | NativeWin32.MF_DISABLED | NativeWin32.MF_GRAYED, UIntPtr.Zero, "— Frequent Languages —");
-        for (int i = 0; i < SupportedLanguage.All.Count; i++)
+        if (supportedLangs.Count == 1)
         {
-            var l = SupportedLanguage.All[i];
-            if (l.IsPopular)
+            // Single-language model (e.g. zipformer-en only supports English)
+            var singleLang = supportedLangs[0];
+            NativeWin32.AppendMenu(hMenu, NativeWin32.MF_STRING | NativeWin32.MF_CHECKED | NativeWin32.MF_GRAYED, (UIntPtr)CMD_LANG_BASE, $"🌐 Language: {singleLang.DisplayName} (English Only)");
+        }
+        else if (supportedLangs.Count <= 5)
+        {
+            // Small language set model (e.g. zipformer-bilingual with Chinese & English)
+            IntPtr hLangMenu = NativeWin32.CreatePopupMenu();
+            for (int i = 0; i < supportedLangs.Count; i++)
             {
+                var l = supportedLangs[i];
                 uint langFlags = NativeWin32.MF_STRING | (string.Equals(l.Code, activeLangCode, StringComparison.OrdinalIgnoreCase) ? NativeWin32.MF_CHECKED : NativeWin32.MF_UNCHECKED);
                 NativeWin32.AppendMenu(hLangMenu, langFlags, (UIntPtr)(CMD_LANG_BASE + i), l.FullTitle);
             }
+            NativeWin32.AppendMenu(hMenu, NativeWin32.MF_POPUP, (UIntPtr)hLangMenu, $"🌐 Languages ({supportedLangs.Count})");
         }
-
-        NativeWin32.AppendMenu(hLangMenu, NativeWin32.MF_SEPARATOR, UIntPtr.Zero, null);
-
-        // All 40 Languages sub-group
-        IntPtr hAllLangMenu = NativeWin32.CreatePopupMenu();
-        for (int i = 0; i < SupportedLanguage.All.Count; i++)
+        else
         {
-            var l = SupportedLanguage.All[i];
-            uint langFlags = NativeWin32.MF_STRING | (string.Equals(l.Code, activeLangCode, StringComparison.OrdinalIgnoreCase) ? NativeWin32.MF_CHECKED : NativeWin32.MF_UNCHECKED);
-            NativeWin32.AppendMenu(hAllLangMenu, langFlags, (UIntPtr)(CMD_LANG_BASE + i), l.FullTitle);
+            // Multilingual model (Nemotron-3.5 with 40 languages)
+            IntPtr hLangMenu = NativeWin32.CreatePopupMenu();
+            NativeWin32.AppendMenu(hLangMenu, NativeWin32.MF_STRING | NativeWin32.MF_DISABLED | NativeWin32.MF_GRAYED, UIntPtr.Zero, "— Frequent Languages —");
+            for (int i = 0; i < supportedLangs.Count; i++)
+            {
+                var l = supportedLangs[i];
+                if (l.IsPopular)
+                {
+                    uint langFlags = NativeWin32.MF_STRING | (string.Equals(l.Code, activeLangCode, StringComparison.OrdinalIgnoreCase) ? NativeWin32.MF_CHECKED : NativeWin32.MF_UNCHECKED);
+                    NativeWin32.AppendMenu(hLangMenu, langFlags, (UIntPtr)(CMD_LANG_BASE + i), l.FullTitle);
+                }
+            }
+
+            NativeWin32.AppendMenu(hLangMenu, NativeWin32.MF_SEPARATOR, UIntPtr.Zero, null);
+
+            IntPtr hAllLangMenu = NativeWin32.CreatePopupMenu();
+            for (int i = 0; i < supportedLangs.Count; i++)
+            {
+                var l = supportedLangs[i];
+                uint langFlags = NativeWin32.MF_STRING | (string.Equals(l.Code, activeLangCode, StringComparison.OrdinalIgnoreCase) ? NativeWin32.MF_CHECKED : NativeWin32.MF_UNCHECKED);
+                NativeWin32.AppendMenu(hAllLangMenu, langFlags, (UIntPtr)(CMD_LANG_BASE + i), l.FullTitle);
+            }
+            NativeWin32.AppendMenu(hLangMenu, NativeWin32.MF_POPUP, (UIntPtr)hAllLangMenu, $"All {supportedLangs.Count} Languages (A-Z)");
+            NativeWin32.AppendMenu(hMenu, NativeWin32.MF_POPUP, (UIntPtr)hLangMenu, "🌐 Languages");
         }
-        NativeWin32.AppendMenu(hLangMenu, NativeWin32.MF_POPUP, (UIntPtr)hAllLangMenu, "All 40 Languages (A-Z)");
-        NativeWin32.AppendMenu(hMenu, NativeWin32.MF_POPUP, (UIntPtr)hLangMenu, "🌐 Languages");
 
         // 5. Microphones Submenu (Queried lazily on demand)
         IntPtr hMicMenu = NativeWin32.CreatePopupMenu();
@@ -389,7 +412,12 @@ public class NativeTrayApp : IDisposable
         else if (cmd >= CMD_LANG_BASE && cmd < CMD_MIC_BASE)
         {
             int langIdx = (int)(cmd - CMD_LANG_BASE);
-            if (langIdx >= 0 && langIdx < SupportedLanguage.All.Count)
+            var supported = _configService.GetSupportedLanguagesForActiveModel();
+            if (langIdx >= 0 && langIdx < supported.Count)
+            {
+                _configService.UpdateLanguage(supported[langIdx].Code);
+            }
+            else if (langIdx >= 0 && langIdx < SupportedLanguage.All.Count)
             {
                 _configService.UpdateLanguage(SupportedLanguage.All[langIdx].Code);
             }

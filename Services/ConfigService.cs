@@ -16,6 +16,10 @@ public class ConfigService
     public string ConfigFolderPath => _configFolderPath;
     public string ConfigFilePath => _configFilePath;
 
+    public string ActiveModelId => !string.IsNullOrWhiteSpace(_config.ModelId)
+        ? _config.ModelId
+        : DetectModelId(_config.ModelPath);
+
     public event Action<AppConfig>? ConfigChanged;
 
     public ConfigService()
@@ -27,6 +31,14 @@ public class ConfigService
 
         _config = Load();
         ValidateOrFindModelPath();
+
+        // Ensure ModelId and LanguageCode are consistent
+        if (string.IsNullOrWhiteSpace(_config.ModelId))
+        {
+            _config.ModelId = DetectModelId(_config.ModelPath);
+        }
+        _config.LanguageCode = SupportedLanguage.NormalizeLanguageForModel(ActiveModelId, _config.LanguageCode);
+
         if (!File.Exists(_configFilePath))
         {
             Save();
@@ -47,7 +59,6 @@ public class ConfigService
                 var loaded = JsonSerializer.Deserialize<AppConfig>(json);
                 if (loaded != null)
                 {
-                    // Ensure current version is marked
                     loaded.Version = CurrentVersion;
                     return loaded;
                 }
@@ -74,7 +85,16 @@ public class ConfigService
 
     public void UpdateLanguage(string languageCode)
     {
-        _config.LanguageCode = languageCode;
+        _config.LanguageCode = SupportedLanguage.NormalizeLanguageForModel(ActiveModelId, languageCode);
+        Save();
+    }
+
+    public void UpdateModel(string modelId, string modelPath, string modelName)
+    {
+        _config.ModelId = modelId;
+        _config.ModelPath = modelPath;
+        _config.ModelName = modelName;
+        _config.LanguageCode = SupportedLanguage.NormalizeLanguageForModel(modelId, _config.LanguageCode);
         Save();
     }
 
@@ -116,44 +136,82 @@ public class ConfigService
     }
 
     /// <summary>
-    /// Configures automatic startup using the Windows Startup folder shortcut instead of the Windows Registry.
-    /// Cleans up any legacy registry Run keys if present.
+    /// Configures automatic startup in HKCU\Software\Microsoft\Windows\CurrentVersion\Run.
+    /// Also removes any obsolete startup folder shortcut if present.
     /// </summary>
     public static void SetAutoStart(bool enable)
     {
         try
         {
-            // 1. Startup folder shortcut management
+            // 1. Remove any legacy or duplicate shortcut in the Windows Startup folder
             string startupFolder = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
             string shortcutPath = Path.Combine(startupFolder, "KerkenezSpeech.lnk");
-
-            if (enable)
+            if (File.Exists(shortcutPath))
             {
-                string exePath = Process.GetCurrentProcess().MainModule?.FileName ?? "";
-                if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath))
-                {
-                    exePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "KerkenezSpeech.exe");
-                }
-                string icoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.ico");
-                SetupEngine.CreateShortcut(shortcutPath, exePath, "KerkenezSpeech Voice Keyboard", icoPath);
-            }
-            else
-            {
-                if (File.Exists(shortcutPath))
-                {
-                    File.Delete(shortcutPath);
-                }
+                File.Delete(shortcutPath);
             }
 
-            // 2. Clear legacy registry Run keys if previously set
+            // 2. Set or remove in HKCU Run registry
             using var runKey = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true);
             if (runKey != null)
             {
-                runKey.DeleteValue("SpeechRecognation", false);
-                runKey.DeleteValue("KerkenezSpeech", false);
+                if (enable)
+                {
+                    string exePath = Process.GetCurrentProcess().MainModule?.FileName ?? "";
+                    if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath))
+                    {
+                        exePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "KerkenezSpeech.exe");
+                    }
+                    runKey.SetValue("KerkenezSpeech", $"\"{exePath}\"");
+                }
+                else
+                {
+                    runKey.DeleteValue("KerkenezSpeech", false);
+                    runKey.DeleteValue("SpeechRecognation", false);
+                }
             }
         }
         catch { }
+    }
+
+    public IReadOnlyList<SupportedLanguage> GetSupportedLanguagesForActiveModel()
+    {
+        return SupportedLanguage.GetSupportedLanguages(ActiveModelId);
+    }
+
+    public static string DetectModelId(string? modelPath)
+    {
+        if (string.IsNullOrWhiteSpace(modelPath))
+            return "nemotron-int8";
+
+        string lower = modelPath.ToLowerInvariant();
+        if (lower.Contains("zipformer-en") || lower.Contains("chunk-16"))
+            return "zipformer-en";
+        if (lower.Contains("bilingual") || lower.Contains("zh-en"))
+            return "zipformer-bilingual";
+        if (lower.Contains("nemotron"))
+            return "nemotron-int8";
+
+        if (Directory.Exists(modelPath))
+        {
+            var files = Directory.GetFiles(modelPath).Select(Path.GetFileName).ToList();
+            if (files.Any(f => f != null && f.Contains("chunk-16", StringComparison.OrdinalIgnoreCase)))
+                return "zipformer-en";
+            if (files.Any(f => f != null && (f.Contains("bilingual", StringComparison.OrdinalIgnoreCase) || f.Contains("avg-1.int8.onnx", StringComparison.OrdinalIgnoreCase))))
+                return "zipformer-bilingual";
+        }
+
+        return "nemotron-int8";
+    }
+
+    public static string GetModelType(string? modelId)
+    {
+        return modelId?.ToLowerInvariant() switch
+        {
+            "zipformer-en" => "zipformer",
+            "zipformer-bilingual" => "zipformer",
+            _ => "nemotron"
+        };
     }
 
     public void OpenConfigFolder()
@@ -176,10 +234,13 @@ public class ConfigService
             return;
         }
 
-        string? discovered = SetupEngine.FindLocalNemotronModel();
+        var (discovered, discoveredId, discoveredName) = SetupEngine.FindBestLocalModel();
         if (!string.IsNullOrEmpty(discovered))
         {
             _config.ModelPath = discovered;
+            _config.ModelId = discoveredId ?? DetectModelId(discovered);
+            _config.ModelName = discoveredName ?? _config.ModelName;
+            _config.LanguageCode = SupportedLanguage.NormalizeLanguageForModel(_config.ModelId, _config.LanguageCode);
             Save();
         }
     }
@@ -190,9 +251,16 @@ public class ConfigService
             return (null, null, null, null);
 
         var onnxFiles = Directory.GetFiles(path, "*.onnx");
-        string? encoder = onnxFiles.FirstOrDefault(f => Path.GetFileName(f).StartsWith("encoder", StringComparison.OrdinalIgnoreCase));
-        string? decoder = onnxFiles.FirstOrDefault(f => Path.GetFileName(f).StartsWith("decoder", StringComparison.OrdinalIgnoreCase));
-        string? joiner = onnxFiles.FirstOrDefault(f => Path.GetFileName(f).StartsWith("joiner", StringComparison.OrdinalIgnoreCase));
+
+        // Prefer .int8.onnx if available, otherwise any matching .onnx
+        string? encoder = onnxFiles.FirstOrDefault(f => Path.GetFileName(f).StartsWith("encoder", StringComparison.OrdinalIgnoreCase) && f.EndsWith(".int8.onnx", StringComparison.OrdinalIgnoreCase))
+                       ?? onnxFiles.FirstOrDefault(f => Path.GetFileName(f).StartsWith("encoder", StringComparison.OrdinalIgnoreCase));
+
+        string? decoder = onnxFiles.FirstOrDefault(f => Path.GetFileName(f).StartsWith("decoder", StringComparison.OrdinalIgnoreCase) && f.EndsWith(".int8.onnx", StringComparison.OrdinalIgnoreCase))
+                       ?? onnxFiles.FirstOrDefault(f => Path.GetFileName(f).StartsWith("decoder", StringComparison.OrdinalIgnoreCase));
+
+        string? joiner = onnxFiles.FirstOrDefault(f => Path.GetFileName(f).StartsWith("joiner", StringComparison.OrdinalIgnoreCase) && f.EndsWith(".int8.onnx", StringComparison.OrdinalIgnoreCase))
+                      ?? onnxFiles.FirstOrDefault(f => Path.GetFileName(f).StartsWith("joiner", StringComparison.OrdinalIgnoreCase));
 
         string defaultTokens = Path.Combine(path, "tokens.txt");
         string? tokens = File.Exists(defaultTokens) ? defaultTokens : Directory.GetFiles(path, "*tokens*.txt").FirstOrDefault();

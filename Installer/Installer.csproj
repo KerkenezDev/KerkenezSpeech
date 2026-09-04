@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <Compile Include="..\Models\AppState.cs" Link="Models\AppState.cs" />
+    <Compile Include="..\Models\SupportedLanguage.cs" Link="Models\SupportedLanguage.cs" />
     <Compile Include="..\Services\ConfigService.cs" Link="Services\ConfigService.cs" />
     <Compile Include="..\Services\SetupEngine.cs" Link="Services\SetupEngine.cs" />
   </ItemGroup>

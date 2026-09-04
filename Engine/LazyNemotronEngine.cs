@@ -115,6 +115,8 @@ public class LazyNemotronEngine : IDisposable
             config.ModelConfig.Transducer.Joiner = joiner;
             config.ModelConfig.Tokens = tokens;
             config.ModelConfig.NumThreads = Math.Max(1, numThreads);
+            string modelId = ConfigService.DetectModelId(modelDir);
+            config.ModelConfig.ModelType = ConfigService.GetModelType(modelId);
             config.ModelConfig.Provider = "cpu";
             config.DecodingMethod = "greedy_search";
             config.EnableEndpoint = 1;
@@ -131,15 +133,18 @@ public class LazyNemotronEngine : IDisposable
             {
                 if (_recognizer == null) return;
 
-                string lang = string.IsNullOrWhiteSpace(languageCode) ? "auto" : languageCode;
                 _currentStream?.Dispose();
                 _currentStream = _recognizer.CreateStream();
 
-                try
+                if (_currentStream.HasOption("language"))
                 {
-                    _currentStream.SetOption("language", lang);
+                    string lang = string.IsNullOrWhiteSpace(languageCode) ? "auto" : languageCode;
+                    try
+                    {
+                        _currentStream.SetOption("language", lang);
+                    }
+                    catch { }
                 }
-                catch { }
 
                 _lastReportedText = string.Empty;
             }

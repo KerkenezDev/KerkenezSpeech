@@ -51,7 +51,20 @@ public static class SetupEngine
         )
     };
 
-    public static string? FindLocalNemotronModel()
+    public static (string? Path, string? ModelId, string? ModelName) FindBestLocalModel()
+    {
+        foreach (var preset in AvailableModels)
+        {
+            string? found = FindLocalModelById(preset.Id);
+            if (!string.IsNullOrEmpty(found))
+            {
+                return (found, preset.Id, preset.Name);
+            }
+        }
+        return (null, null, null);
+    }
+
+    public static string? FindLocalModelById(string modelId)
     {
         string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
@@ -59,19 +72,17 @@ public static class SetupEngine
         string baseDir = AppDomain.CurrentDomain.BaseDirectory;
 
         string[] candidates = {
-            Path.Combine(localAppData, "Programs", "Kerkenez", "speech", "models", "nemotron-int8"),
-            Path.Combine(localAppData, "Programs", "Kerkenez", "speech", "nemotron-int8"),
-            Path.Combine(localAppData, "Programs", "Kerkenez", "speech"),
-            Path.Combine(baseDir, "models", "nemotron-int8"),
-            Path.Combine(baseDir, "aiModels", "nemotron-int8"),
-            Path.Combine(baseDir, "nemotron-int8"),
-            Path.Combine(appData, "Kerkenez", "speech", "models", "nemotron-int8"),
-            Path.Combine(userProfile, "Programs", "ProgramFiles", "aiModels", "nemotron-int8"),
-            Path.Combine(userProfile, "aiModels", "nemotron-int8"),
-            Path.Combine(userProfile, "Downloads", "nemotron-int8"),
-            Path.Combine(userProfile, "Downloads", "sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-560ms-int8-2026-06-11"),
-            @"C:\aiModels\nemotron-int8",
-            @"D:\aiModels\nemotron-int8"
+            Path.Combine(localAppData, "Programs", "Kerkenez", "speech", "models", modelId),
+            Path.Combine(localAppData, "Programs", "Kerkenez", "speech", modelId),
+            Path.Combine(baseDir, "models", modelId),
+            Path.Combine(baseDir, "aiModels", modelId),
+            Path.Combine(baseDir, modelId),
+            Path.Combine(appData, "Kerkenez", "speech", "models", modelId),
+            Path.Combine(userProfile, "Programs", "ProgramFiles", "aiModels", modelId),
+            Path.Combine(userProfile, "aiModels", modelId),
+            Path.Combine(userProfile, "Downloads", modelId),
+            @"C:\aiModels\" + modelId,
+            @"D:\aiModels\" + modelId
         };
 
         foreach (var candidate in candidates)
@@ -82,7 +93,21 @@ public static class SetupEngine
             }
         }
 
+        if (modelId == "nemotron-int8")
+        {
+            string defaultSpeechDir = Path.Combine(localAppData, "Programs", "Kerkenez", "speech");
+            if (ConfigService.IsValidModelDir(defaultSpeechDir) && ConfigService.DetectModelId(defaultSpeechDir) == modelId)
+            {
+                return defaultSpeechDir;
+            }
+        }
+
         return null;
+    }
+
+    public static string? FindLocalNemotronModel()
+    {
+        return FindLocalModelById("nemotron-int8");
     }
 
     public static string GetDefaultInstallDir()
