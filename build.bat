@@ -9,7 +9,7 @@ echo.
 where dotnet >nul 2>&1
 if %errorlevel% neq 0 (
     echo [ERROR] .NET SDK is not found in PATH.
-    echo Please install .NET 8.0 SDK or higher.
+    echo Please install .NET 10.0 SDK or higher.
     pause
     exit /b 1
 )
@@ -58,6 +58,6 @@ echo Standalone Executable:
 echo   .\publish\KerkenezSpeech.exe
 echo.
 echo Standalone Installer:
-echo   .\Installer\bin\Release\net8.0-windows\Installer.exe
+echo   .\Installer\bin\Release\net10.0-windows\Installer.exe
 echo.
 pause

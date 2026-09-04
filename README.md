@@ -2,10 +2,10 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform: Windows](https://img.shields.io/badge/Platform-Windows%2011%20%7C%2010-0078D6.svg)](https://microsoft.com)
-[![Framework: .NET 8](https://img.shields.io/badge/Framework-.NET%208.0-512BD4.svg)](https://dotnet.microsoft.com)
+[![Framework: .NET 10](https://img.shields.io/badge/Framework-.NET%2010.0-512BD4.svg)](https://dotnet.microsoft.com)
 [![Engine: Sherpa--ONNX](https://img.shields.io/badge/Engine-Sherpa--ONNX-ff69b4.svg)](https://github.com/k2-fsa/sherpa-onnx)
 
-An ultra-lightweight, high-performance Windows 11 system tray voice keyboard powered by NVIDIA's local streaming **Nemotron-3.5 ASR** transducer model (via Sherpa-ONNX) in C# with .NET 8.
+An ultra-lightweight, high-performance Windows 11 system tray voice keyboard powered by NVIDIA's local streaming **Nemotron-3.5 ASR** transducer model (via Sherpa-ONNX) in C# with .NET 10.
 
 ---
 
@@ -86,7 +86,7 @@ KerkenezSpeech/
 ## Building and Running
 
 ### Prerequisites
-- [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) or higher
+- [.NET 10.0 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) or higher
 - Windows 10 / 11 (x64)
 
 ### One-Click Build & Packaging
@@ -97,7 +97,7 @@ build.bat
 This script will:
 1. Build `KerkenezSpeech` in Release configuration.
 2. Publish a single-file release executable into `publish\`.
-3. Build the self-extracting setup wizard (`Installer\bin\Release\net8.0-windows\Installer.exe`).
+3. Build the self-extracting setup wizard (`Installer\bin\Release\net10.0-windows\Installer.exe`).
 
 ### Manual CLI Build
 ```powershell
