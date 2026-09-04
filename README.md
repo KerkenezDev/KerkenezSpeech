@@ -119,7 +119,7 @@ dotnet build Installer/Installer.csproj -c Release
    - Transducer model supporting 40 languages (~670MB).
    - Auto-downloaded during setup or detected from `%LOCALAPPDATA%\Programs\Kerkenez\speech\models\nemotron-int8\`.
 2. **Sherpa-ONNX Zipformer English**:
-   - Ultra-lightweight English streaming model (~75MB).
+   - Ultra-lightweight English streaming model (~80MB).
 3. **Sherpa-ONNX Zipformer Bilingual**:
    - Chinese + English streaming model (~195MB).
 
@@ -127,6 +127,6 @@ dotnet build Installer/Installer.csproj -c Release
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE) - &copy; 2026 **KerkenezDev**.
+This project is licensed under the [MIT License](LICENSE) - &copy; 2026 **KerkenezDev**. 
 
 For third-party libraries and model licenses, see [NOTICES.md](NOTICES.md).
