@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PlatformTarget>x64</PlatformTarget>
+    <Platforms>x64</Platforms>
+    <AssemblyName>Installer</AssemblyName>
+    <RootNamespace>KerkenezSpeech.Installer</RootNamespace>
+    <Authors>KerkenezDev</Authors>
+    <Company>KerkenezDev</Company>
+    <Product>KerkenezSpeech Installer</Product>
+    <Version>0.1.0</Version>
+    <ApplicationIcon>..\app.ico</ApplicationIcon>
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Models\AppState.cs" Link="Models\AppState.cs" />
+    <Compile Include="..\Services\ConfigService.cs" Link="Services\ConfigService.cs" />
+    <Compile Include="..\Services\SetupEngine.cs" Link="Services\SetupEngine.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\publish\KerkenezSpeech.exe" Link="Payload\KerkenezSpeech.exe" Condition="Exists('..\publish\KerkenezSpeech.exe')" />
+    <EmbeddedResource Include="..\app.ico" Link="Payload\app.ico" />
+  </ItemGroup>
+
+</Project>

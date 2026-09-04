@@ -1,0 +1,44 @@
+name: Build & Release CI
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore KerkenezSpeech.slnx
+
+    - name: Build KerkenezSpeech (Release)
+      run: dotnet build KerkenezSpeech.csproj -c Release --no-restore
+
+    - name: Publish single-file executable
+      run: dotnet publish KerkenezSpeech.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o publish
+
+    - name: Build Installer (embedding published executable)
+      run: dotnet build Installer/Installer.csproj -c Release
+
+    - name: Upload Build Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: KerkenezSpeech-Release
+        path: |
+          publish/KerkenezSpeech.exe
+          Installer/bin/Release/net8.0-windows/Installer.exe
+          README.md
+          LICENSE
+          NOTICES.md

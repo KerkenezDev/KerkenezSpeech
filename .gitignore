@@ -1,0 +1,32 @@
+## Visual Studio & Build Outputs
+[Bb]in/
+[Oo]bj/
+publish/
+[Ll]og/
+[Ll]ogs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+.vscode/
+
+## Native build artifacts
+*.exe
+*.dll
+*.pdb
+!Payload/*.exe
+!app.ico
+
+## Models & Weights (Downloaded at runtime)
+models/
+aiModels/
+*.onnx
+*.int8.onnx
+
+## OS Files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store

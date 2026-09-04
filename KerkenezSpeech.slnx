@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Installer/Installer.csproj" />
+  <Project Path="KerkenezSpeech.csproj" />
+</Solution>
